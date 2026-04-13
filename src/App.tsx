@@ -106,9 +106,12 @@ export default function App() {
   }, [userId]);
 
   const handleTap = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      navigator.vibrate([50]);
-    }
+    // Start BGM on first interaction (Browser policy)
+    if ('vibrate' in navigator) {
+  navigator.vibrate(50); // 50ms 동안 짧게 진동
+}
+
+
 
     // Play sound
     try {
@@ -173,7 +176,7 @@ export default function App() {
 
         {/* The Moktak */}
         <motion.button
-          onPointerUp={handleTap}
+          onPointerDown={handleTap}
           animate={{ 
             scale: isTapping ? 0.94 : 1,
             rotate: isTapping ? -3 : 0,
