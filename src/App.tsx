@@ -7,10 +7,28 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Howl } from 'howler';
 import { Heart, Flame, Info, RotateCcw, Trophy } from 'lucide-react';
+import moktakSoundFile from '../sound.wav';
+
+const STORAGE_USER_ID_KEY = 'moktak-user-id';
+
+function getOrCreateUserId() {
+  if (typeof window === 'undefined') {
+    return `user_server`;
+  }
+
+  const savedUserId = window.localStorage.getItem(STORAGE_USER_ID_KEY);
+  if (savedUserId) {
+    return savedUserId;
+  }
+
+  const newUserId = `user_${Math.random().toString(36).slice(2, 11)}`;
+  window.localStorage.setItem(STORAGE_USER_ID_KEY, newUserId);
+  return newUserId;
+}
 
 // 클릭할 때 나는 목탁 소리
 const moktakSound = new Howl({
-  src: `/sound.wav`, 
+  src: [moktakSoundFile],
   volume: 1.0,
   html5: true,
   preload: true,
@@ -22,7 +40,7 @@ export default function App() {
   const [visitorCount, setVisitorCount] = useState(0);
   const [isTapping, setIsTapping] = useState(false);
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
-  const [userId] = useState(() => `user_${Math.random().toString(36).substr(2, 9)}`);
+  const [userId] = useState(getOrCreateUserId);
   
   // Custom Stick Cursor Style - Larger and clearer
   const stickCursor = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><path d='M10 54 L54 10' stroke='%238b4513' stroke-width='8' stroke-linecap='round'/><circle cx='54' cy='10' r='6' fill='%238b4513'/></svg>") 54 10, auto`;
@@ -72,7 +90,7 @@ export default function App() {
     });
   }, [userId]);
 
-  const handleTap = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleTap = (e: React.PointerEvent<HTMLButtonElement>) => {
     // Start BGM on first interaction (Browser policy)
     if ('vibrate' in navigator) {
   navigator.vibrate(50); // 50ms 동안 짧게 진동
@@ -96,8 +114,8 @@ export default function App() {
     setTimeout(() => setIsTapping(false), 100);
 
     // Add ripple
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
     
     const newRipple = { id: Date.now(), x: clientX, y: clientY };
     setRipples(prev => [...prev, newRipple]);
@@ -143,8 +161,7 @@ export default function App() {
 
         {/* The Moktak */}
         <motion.button
-          onMouseDown={handleTap}
-          onTouchStart={handleTap}
+          onPointerDown={handleTap}
           animate={{ 
             scale: isTapping ? 0.94 : 1,
             rotate: isTapping ? -3 : 0,
@@ -153,7 +170,7 @@ export default function App() {
           transition={{ type: "spring", stiffness: 600, damping: 12 }}
           className="relative w-64 h-64 group outline-none z-10 mt-10"
           id="moktak-button"
-          style={{ cursor: 'inherit' }}
+          style={{ cursor: 'inherit', touchAction: 'manipulation' }}
         >
           {/* 목탁 몸통 */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#a0522d] via-[#8b4513] to-[#4d2608] rounded-full shadow-[0_30px_70px_rgba(0,0,0,0.5),inset_0_4px_15px_rgba(255,255,255,0.2)] border-b-[5px] border-[#2a1506] z-20">
