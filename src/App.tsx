@@ -65,12 +65,10 @@ export default function App() {
   const fetchTotals = useCallback(() => {
     return fetch('/api/hits/total')
       .then(async res => {
+        const data = await res.json();
         if (!res.ok) {
-          throw new Error(`Failed to fetch total: ${res.status}`);
+          throw new Error(`Failed to fetch total: ${res.status} ${JSON.stringify(data)}`);
         }
-        return res.json();
-      })
-      .then(data => {
         const stats = readCountPayload(data);
         setGlobalTotal(stats.globalTotal);
         setVisitorCount(stats.visitorCount);
@@ -81,12 +79,10 @@ export default function App() {
   useEffect(() => {
     fetch(`/api/hits/${userId}`)
       .then(async res => {
+        const data = await res.json();
         if (!res.ok) {
-          throw new Error(`Failed to fetch hits: ${res.status}`);
+          throw new Error(`Failed to fetch hits: ${res.status} ${JSON.stringify(data)}`);
         }
-        return res.json();
-      })
-      .then(data => {
         const stats = readCountPayload(data);
         setCount(stats.count);
         setGlobalTotal(stats.globalTotal);
@@ -116,12 +112,10 @@ export default function App() {
       body: JSON.stringify({ increment }),
     })
       .then(async res => {
+        const data = await res.json();
         if (!res.ok) {
-          throw new Error(`Failed to sync hits: ${res.status}`);
+          throw new Error(`Failed to sync hits: ${res.status} ${JSON.stringify(data)}`);
         }
-        return res.json();
-      })
-      .then(data => {
         const stats = readCountPayload(data);
         setCount(stats.count);
         setGlobalTotal(stats.globalTotal);
@@ -168,7 +162,7 @@ export default function App() {
 
     // Debounced sync (Batching)
     if (syncTimer.current) clearTimeout(syncTimer.current);
-    syncTimer.current = setTimeout(syncWithBackend, 2000); // Sync every 2 seconds of inactivity
+    syncTimer.current = setTimeout(syncWithBackend, 500);
   };
 
   return (

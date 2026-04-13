@@ -28,6 +28,14 @@ const globalStore = globalThis as typeof globalThis & {
   __moktakHitStore?: MemoryStore;
 };
 
+function getSupabaseConfig() {
+  const url = process.env.MOKTAK_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceRoleKey =
+    process.env.MOKTAK_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  return { url, serviceRoleKey };
+}
+
 function getKoreaDayKey() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
@@ -65,14 +73,15 @@ function getMemoryStore() {
 }
 
 function hasSupabaseConfig() {
-  return Boolean(process.env.MOKTAK_SUPABASE_URL && process.env.MOKTAK_SUPABASE_SERVICE_ROLE_KEY);
+  const { url, serviceRoleKey } = getSupabaseConfig();
+  return Boolean(url && serviceRoleKey);
 }
 
 function getSupabaseHeaders(extraHeaders?: Record<string, string>) {
-  const serviceRoleKey = process.env.MOKTAK_SUPABASE_SERVICE_ROLE_KEY;
+  const { serviceRoleKey } = getSupabaseConfig();
 
   if (!serviceRoleKey) {
-    throw new Error('Missing MOKTAK_SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error('Missing Supabase service role key');
   }
 
   return {
@@ -84,9 +93,9 @@ function getSupabaseHeaders(extraHeaders?: Record<string, string>) {
 }
 
 async function supabaseFetch(path: string, init?: RequestInit) {
-  const supabaseUrl = process.env.MOKTAK_SUPABASE_URL;
+  const { url: supabaseUrl } = getSupabaseConfig();
   if (!supabaseUrl) {
-    throw new Error('Missing MOKTAK_SUPABASE_URL');
+    throw new Error('Missing Supabase URL');
   }
 
   const response = await fetch(`${supabaseUrl}/rest/v1${path}`, init);
@@ -278,7 +287,11 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       });
     } catch (error) {
       console.error('Failed to read totals:', error);
-      return sendJson(res, 500, { error: 'Failed to read totals' });
+      return sendJson(res, 500, {
+        error: 'Failed to read totals',
+        details: error instanceof Error ? error.message : String(error),
+        hasSupabaseConfig: hasSupabaseConfig(),
+      });
     }
   }
 
@@ -304,7 +317,11 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       });
     } catch (error) {
       console.error('Failed to read user stats:', error);
-      return sendJson(res, 500, { error: 'Failed to read user stats' });
+      return sendJson(res, 500, {
+        error: 'Failed to read user stats',
+        details: error instanceof Error ? error.message : String(error),
+        hasSupabaseConfig: hasSupabaseConfig(),
+      });
     }
   }
 
@@ -322,7 +339,11 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       });
     } catch (error) {
       console.error('Failed to write user stats:', error);
-      return sendJson(res, 500, { error: 'Failed to write user stats' });
+      return sendJson(res, 500, {
+        error: 'Failed to write user stats',
+        details: error instanceof Error ? error.message : String(error),
+        hasSupabaseConfig: hasSupabaseConfig(),
+      });
     }
   }
 
