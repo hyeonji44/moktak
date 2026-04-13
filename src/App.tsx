@@ -113,11 +113,8 @@ export default function App() {
     const increment = pendingHits.current || 1;
     pendingHits.current = 0;
 
-    fetch(`/api/hits/${userId}`, {
-      method: 'POST',
+    fetch(`/api/hits/${userId}?increment=${increment}&ts=${Date.now()}`, {
       cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ increment }),
     })
       .then(async res => {
         const data = await readResponseBody(res);
