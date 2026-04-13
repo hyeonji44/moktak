@@ -196,7 +196,7 @@ export default function App() {
           className="absolute -top-24 flex flex-col items-center select-none"
         >
           {/* 내가 두드린 횟수 */}
-          <span className="text-7xl font-black text-[#8b4513] tabular-nums drop-shadow-sm">{count}</span>
+          <span className="text-6xl font-black text-[#8b4513] tabular-nums drop-shadow-sm">{count}</span>
         </motion.div>
 
         {/* 목탁 */}
@@ -244,12 +244,12 @@ export default function App() {
       </div>
 
       {/* Footer Stats/Info */}
-      <div className="mt-10 sm:mt-20 grid grid-rows-2 gap-2 text-center max-w-lg w-full">
+      <div className=" sm:mt-16 grid grid-rows-2 gap-2 text-center max-w-lg w-full">
           <span>오늘 울려펴진 목탁소리: <span className="text-[#a0522d]">{globalTotal.toLocaleString()}</span></span>
           <span>오늘 방문한 목탁러: <span className="text-[#a0522d]">{visitorCount.toLocaleString()}명</span></span>
       </div>
 
-      <p className="mt-20 text-sm text-[#93a1a1]z-10">문의 | hyeonji443@gmail.com</p>
+      <p className="mt-8 text-sm text-[#93a1a1]z-10">문의 | hyeonji443@gmail.com</p>
     </div>
   );
 }
