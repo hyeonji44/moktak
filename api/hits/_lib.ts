@@ -18,9 +18,12 @@ const globalStore = globalThis as typeof globalThis & {
 };
 
 function getSupabaseConfig() {
-  const url = process.env.MOKTAK_SUPABASE_URL || process.env.SUPABASE_URL;
-  const serviceRoleKey =
+  const rawUrl = process.env.MOKTAK_SUPABASE_URL || process.env.SUPABASE_URL;
+  const rawServiceRoleKey =
     process.env.MOKTAK_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  const url = rawUrl?.trim().replace(/^['"]|['"]$/g, '');
+  const serviceRoleKey = rawServiceRoleKey?.trim().replace(/^['"]|['"]$/g, '');
 
   return { url, serviceRoleKey };
 }
@@ -81,6 +84,10 @@ async function supabaseFetch(path: string, init?: RequestInit) {
   const { url: supabaseUrl } = getSupabaseConfig();
   if (!supabaseUrl) {
     throw new Error('Missing Supabase URL');
+  }
+
+  if (!/^https?:\/\//.test(supabaseUrl)) {
+    throw new Error(`Invalid Supabase URL: ${supabaseUrl}`);
   }
 
   const response = await fetch(`${supabaseUrl}/rest/v1${path}`, init);

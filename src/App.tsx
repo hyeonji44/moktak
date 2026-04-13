@@ -39,6 +39,20 @@ function readCountPayload(data: any) {
   };
 }
 
+async function readResponseBody(res: Response) {
+  const text = await res.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+}
+
 // 클릭할 때 나는 목탁 소리
 const moktakSound = new Howl({
   src: [moktakSoundFile],
@@ -64,7 +78,7 @@ export default function App() {
   const fetchTotals = useCallback(() => {
     return fetch('/api/hits/total')
       .then(async res => {
-        const data = await res.json();
+        const data = await readResponseBody(res);
         if (!res.ok) {
           throw new Error(`Failed to fetch total: ${res.status} ${JSON.stringify(data)}`);
         }
@@ -78,7 +92,7 @@ export default function App() {
   useEffect(() => {
     fetch(`/api/hits/${userId}`)
       .then(async res => {
-        const data = await res.json();
+        const data = await readResponseBody(res);
         if (!res.ok) {
           throw new Error(`Failed to fetch hits: ${res.status} ${JSON.stringify(data)}`);
         }
@@ -104,7 +118,7 @@ export default function App() {
       body: JSON.stringify({ increment }),
     })
       .then(async res => {
-        const data = await res.json();
+        const data = await readResponseBody(res);
         if (!res.ok) {
           throw new Error(`Failed to sync hits: ${res.status} ${JSON.stringify(data)}`);
         }
