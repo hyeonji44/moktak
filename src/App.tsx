@@ -26,6 +26,11 @@ function getOrCreateUserId() {
   return newUserId;
 }
 
+function toSafeNumber(value: unknown) {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 // 클릭할 때 나는 목탁 소리
 const moktakSound = new Howl({
   src: [moktakSoundFile],
@@ -52,21 +57,31 @@ export default function App() {
   // Fetch initial count
   useEffect(() => {
     fetch(`/api/hits/${userId}`)
-      .then(res => res.json())
+      .then(async res => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch hits: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
-        setCount(data.count);
-        setGlobalTotal(data.globalTotal || 0);
-        setVisitorCount(data.visitorCount || 0);
+        setCount(toSafeNumber(data.count));
+        setGlobalTotal(toSafeNumber(data.globalTotal));
+        setVisitorCount(toSafeNumber(data.visitorCount));
       })
       .catch(err => console.error("Failed to fetch hits:", err));
 
     // Poll for global total every 10 seconds
     const interval = setInterval(() => {
       fetch('/api/hits/total')
-        .then(res => res.json())
+        .then(async res => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch total: ${res.status}`);
+          }
+          return res.json();
+        })
         .then(data => {
-          setGlobalTotal(data.total);
-          setVisitorCount(data.visitors || 0);
+          setGlobalTotal(toSafeNumber(data.total));
+          setVisitorCount(toSafeNumber(data.visitors));
         })
         .catch(err => console.error("Failed to fetch total:", err));
     }, 10000);
@@ -106,7 +121,7 @@ export default function App() {
     }
 
     // Update local state immediately for responsiveness
-    setCount(prev => prev + 1);
+    setCount(prev => toSafeNumber(prev) + 1);
     pendingHits.current += 1;
 
     // Visual feedback
