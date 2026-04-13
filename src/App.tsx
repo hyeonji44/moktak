@@ -251,7 +251,8 @@ export default function App() {
 
       <a
         href="mailto:hyeonji443@gmail.com"
-        className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs sm:text-sm text-[#93a1a1] hover:text-[#7E4412] transition-colors z-10"
+        className="absolute left-1/2 -translate-x-1/2 text-xs sm:text-sm text-[#93a1a1] hover:text-[#7E4412] transition-colors z-10 whitespace-nowrap"
+        style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
         문의 | hyeonji443@gmail.com
       </a>
