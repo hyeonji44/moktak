@@ -121,14 +121,15 @@ export default function App() {
         }
         const stats = readCountPayload(data);
         setCount(prev => Math.max(toSafeNumber(prev), stats.count));
-        setGlobalTotal(stats.globalTotal);
-        setVisitorCount(stats.visitorCount);
+        setGlobalTotal(prev => Math.max(toSafeNumber(prev), stats.globalTotal));
+        setVisitorCount(prev => Math.max(toSafeNumber(prev), stats.visitorCount));
+        fetchTotals().catch(err => console.error("Failed to refresh total after sync:", err));
       })
       .catch(err => {
         console.error("Sync failed, restoring pending hits:", err);
         pendingHits.current += increment;
     });
-  }, [userId]);
+  }, [fetchTotals, userId]);
 
   const handleTap = (e: React.PointerEvent<HTMLButtonElement>) => {
     // Start BGM on first interaction (Browser policy)
