@@ -83,7 +83,7 @@ async function supabaseRequest(path: string, init?: RequestInit) {
 }
 
 async function ensureSupabaseVisitor(userId: string, dayKey: string) {
-  await supabaseRequest('daily_visitors?on_conflict=day_key,user_id', {
+  await supabaseRequest('/daily_visitors?on_conflict=day_key,user_id', {
     method: 'POST',
     headers: {
       Prefer: 'resolution=ignore-duplicates,return=minimal',
@@ -98,10 +98,10 @@ async function readSupabaseStats(userId: string) {
 
   const [userRows, statsRows, visitorRows] = (await Promise.all([
     supabaseRequest(
-      `daily_visitors?select=hit_count&day_key=eq.${encodeURIComponent(dayKey)}&user_id=eq.${encodeURIComponent(userId)}`,
+      `/daily_visitors?select=hit_count&day_key=eq.${encodeURIComponent(dayKey)}&user_id=eq.${encodeURIComponent(userId)}`,
     ).then(res => res.json()),
-    supabaseRequest(`daily_stats?select=total_hits&day_key=eq.${encodeURIComponent(dayKey)}`).then(res => res.json()),
-    supabaseRequest(`daily_visitors?select=user_id&day_key=eq.${encodeURIComponent(dayKey)}`).then(res => res.json()),
+    supabaseRequest(`/daily_stats?select=total_hits&day_key=eq.${encodeURIComponent(dayKey)}`).then(res => res.json()),
+    supabaseRequest(`/daily_visitors?select=user_id&day_key=eq.${encodeURIComponent(dayKey)}`).then(res => res.json()),
   ])) as [
     Array<{ hit_count?: unknown }>,
     Array<{ total_hits?: unknown }>,
@@ -119,7 +119,7 @@ async function readSupabaseStats(userId: string) {
 
 async function writeSupabaseStats(userId: string, increment: number) {
   const dayKey = getKoreaDayKey();
-  const response = await supabaseRequest('rpc/increment_moktak_hit', {
+  const response = await supabaseRequest('/rpc/increment_moktak_hit', {
     method: 'POST',
     body: JSON.stringify({
       p_day_key: dayKey,

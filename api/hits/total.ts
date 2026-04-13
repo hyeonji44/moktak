@@ -82,8 +82,8 @@ export default async function handler(_req: unknown, res: ResponseLike) {
 
     if (url && key) {
       const [statsRows, visitorRows] = (await Promise.all([
-        supabaseFetch(`daily_stats?select=total_hits&day_key=eq.${encodeURIComponent(dayKey)}`),
-        supabaseFetch(`daily_visitors?select=user_id&day_key=eq.${encodeURIComponent(dayKey)}`),
+        supabaseFetch(`/daily_stats?select=total_hits&day_key=eq.${encodeURIComponent(dayKey)}`),
+        supabaseFetch(`/daily_visitors?select=user_id&day_key=eq.${encodeURIComponent(dayKey)}`),
       ])) as [Array<{ total_hits?: unknown }>, Array<{ user_id?: unknown }>];
 
       return res.status(200).json({
