@@ -169,7 +169,7 @@ export default function App() {
 
   return (
     <div 
-      className="h-screen min-h-[100svh] bg-[#fdf6e3] text-[#586e75] font-sans selection:bg-[#eee8d5] overflow-hidden flex flex-col items-center justify-center px-4 py-3 sm:p-4 relative"
+      className="min-h-screen bg-[#fdf6e3] text-[#586e75] font-sans selection:bg-[#eee8d5] overflow-hidden flex flex-col items-center justify-center p-4 relative"
       style={{ cursor: stickCursor }}
     >
       {/* Background Zen Pattern */}
@@ -180,10 +180,10 @@ export default function App() {
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-6 sm:mb-12 z-10 select-none"
+        className="text-center mb-12 z-10 select-none"
       >
         <h1 className="text-5xl tracking-tight text-[#073642] mb-2 font-['NostalgicPoliceVibe']">목탁소리</h1>
-        <p className="text-lg text-[#93a1a1] mt-3 mb-8 sm:mt-4 sm:mb-20">화가 진정될 때까지 쳐보세요...</p>
+        <p className="text-lg text-[#93a1a1] mt-4 mb-20">화가 진정될 때까지 쳐보세요...</p>
       </motion.div>
 
       {/* Main Moktak Area */}
@@ -244,12 +244,17 @@ export default function App() {
       </div>
 
       {/* Footer Stats/Info */}
-      <div className=" sm:mt-16 grid grid-rows-2 gap-2 text-center max-w-lg w-full">
+      <div className="mt-20 grid grid-rows-2 gap-2 text-center max-w-lg w-full">
           <span>오늘 울려펴진 목탁소리: <span className="text-[#a0522d]">{globalTotal.toLocaleString()}</span></span>
           <span>오늘 방문한 목탁러: <span className="text-[#a0522d]">{visitorCount.toLocaleString()}명</span></span>
       </div>
 
-      <p className="mt-8 text-sm text-[#93a1a1]z-10">문의 | hyeonji443@gmail.com</p>
+      <a
+        href="mailto:hyeonji443@gmail.com"
+        className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs sm:text-sm text-[#93a1a1] hover:text-[#7E4412] transition-colors z-10"
+      >
+        문의 | hyeonji443@gmail.com
+      </a>
     </div>
   );
 }
