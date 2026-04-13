@@ -106,7 +106,11 @@ export default function App() {
 
     fetchTotals().catch(err => console.error("Failed to fetch total:", err));
 
-    return undefined;
+    const interval = setInterval(() => {
+      fetchTotals().catch(err => console.error("Failed to fetch total:", err));
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [fetchTotals, userId]);
 
   const syncWithBackend = useCallback(() => {
@@ -150,6 +154,7 @@ export default function App() {
 
     // Update local state immediately for responsiveness
     setCount(prev => toSafeNumber(prev) + 1);
+    setGlobalTotal(prev => toSafeNumber(prev) + 1);
     pendingHits.current = 1;
 
     // Visual feedback

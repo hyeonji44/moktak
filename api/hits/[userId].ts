@@ -89,15 +89,28 @@ async function ensureSupabaseVisitor(userId: string, dayKey: string) {
   await supabaseRequest('/daily_visitors?on_conflict=day_key,user_id', {
     method: 'POST',
     headers: {
-      Prefer: 'resolution=ignore-duplicates,return=minimal',
+      Prefer: 'resolution=merge-duplicates,return=minimal',
     },
     body: JSON.stringify([{ day_key: dayKey, user_id: userId, hit_count: 0 }]),
   });
 }
 
+async function ensureSupabaseDailyStats(dayKey: string) {
+  await supabaseRequest('/daily_stats?on_conflict=day_key', {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=minimal',
+    },
+    body: JSON.stringify([{ day_key: dayKey, total_hits: 0 }]),
+  });
+}
+
 async function readSupabaseStats(userId: string) {
   const dayKey = getKoreaDayKey();
-  await ensureSupabaseVisitor(userId, dayKey);
+  await Promise.all([
+    ensureSupabaseVisitor(userId, dayKey),
+    ensureSupabaseDailyStats(dayKey),
+  ]);
 
   const [userRows, statsRows, visitorRows] = (await Promise.all([
     supabaseRequest(
@@ -122,26 +135,58 @@ async function readSupabaseStats(userId: string) {
 
 async function writeSupabaseStats(userId: string, increment: number) {
   const dayKey = getKoreaDayKey();
-  const response = await supabaseRequest('/rpc/increment_moktak_hit', {
-    method: 'POST',
-    body: JSON.stringify({
-      p_day_key: dayKey,
-      p_user_id: userId,
-      p_increment: increment,
-    }),
-  });
+  await Promise.all([
+    ensureSupabaseVisitor(userId, dayKey),
+    ensureSupabaseDailyStats(dayKey),
+  ]);
 
-  const rows = (await response.json()) as Array<{
-    count?: unknown;
-    global_total?: unknown;
-    visitor_count?: unknown;
-  }>;
-  const row = rows[0] || {};
+  const [userRows, statsRows] = (await Promise.all([
+    supabaseRequest(
+      `/daily_visitors?select=hit_count&day_key=eq.${encodeURIComponent(dayKey)}&user_id=eq.${encodeURIComponent(userId)}`,
+    ).then(res => res.json()),
+    supabaseRequest(`/daily_stats?select=total_hits&day_key=eq.${encodeURIComponent(dayKey)}`).then(res => res.json()),
+  ])) as [
+    Array<{ hit_count?: unknown }>,
+    Array<{ total_hits?: unknown }>,
+  ];
+
+  const nextUserCount = toSafeInteger(userRows[0]?.hit_count) + increment;
+  const nextGlobalTotal = toSafeInteger(statsRows[0]?.total_hits) + increment;
+
+  await Promise.all([
+    supabaseRequest(
+      `/daily_visitors?day_key=eq.${encodeURIComponent(dayKey)}&user_id=eq.${encodeURIComponent(userId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({
+          hit_count: nextUserCount,
+          updated_at: new Date().toISOString(),
+        }),
+      },
+    ),
+    supabaseRequest(`/daily_stats?day_key=eq.${encodeURIComponent(dayKey)}`, {
+      method: 'PATCH',
+      headers: {
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        total_hits: nextGlobalTotal,
+        updated_at: new Date().toISOString(),
+      }),
+    }),
+  ]);
+
+  const visitorRows = (await supabaseRequest(
+    `/daily_visitors?select=user_id&day_key=eq.${encodeURIComponent(dayKey)}`,
+  ).then(res => res.json())) as Array<{ user_id?: unknown }>;
 
   return {
-    count: toSafeInteger(row.count),
-    globalTotal: toSafeInteger(row.global_total),
-    visitorCount: toSafeInteger(row.visitor_count),
+    count: nextUserCount,
+    globalTotal: nextGlobalTotal,
+    visitorCount: visitorRows.length,
     dayKey,
     storage: 'supabase' as const,
   };
