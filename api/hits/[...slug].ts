@@ -65,14 +65,14 @@ function getMemoryStore() {
 }
 
 function hasSupabaseConfig() {
-  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return Boolean(process.env.MOKTAK_SUPABASE_URL && process.env.MOKTAK_SUPABASE_SERVICE_ROLE_KEY);
 }
 
 function getSupabaseHeaders(extraHeaders?: Record<string, string>) {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceRoleKey = process.env.MOKTAK_SUPABASE_SERVICE_ROLE_KEY;
 
   if (!serviceRoleKey) {
-    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error('Missing MOKTAK_SUPABASE_SERVICE_ROLE_KEY');
   }
 
   return {
@@ -84,9 +84,9 @@ function getSupabaseHeaders(extraHeaders?: Record<string, string>) {
 }
 
 async function supabaseFetch(path: string, init?: RequestInit) {
-  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseUrl = process.env.MOKTAK_SUPABASE_URL;
   if (!supabaseUrl) {
-    throw new Error('Missing SUPABASE_URL');
+    throw new Error('Missing MOKTAK_SUPABASE_URL');
   }
 
   const response = await fetch(`${supabaseUrl}/rest/v1${path}`, init);
