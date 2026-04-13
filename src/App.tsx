@@ -98,9 +98,9 @@ export default function App() {
           throw new Error(`Failed to fetch hits: ${res.status} ${JSON.stringify(data)}`);
         }
         const stats = readCountPayload(data);
-        setCount(stats.count);
-        setGlobalTotal(stats.globalTotal);
-        setVisitorCount(stats.visitorCount);
+        setCount(prev => Math.max(toSafeNumber(prev), stats.count));
+        setGlobalTotal(prev => Math.max(toSafeNumber(prev), stats.globalTotal));
+        setVisitorCount(prev => Math.max(toSafeNumber(prev), stats.visitorCount));
       })
       .catch(err => console.error("Failed to fetch hits:", err));
 

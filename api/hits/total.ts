@@ -25,6 +25,10 @@ function getSupabaseConfig() {
   };
 }
 
+function isProductionRuntime() {
+  return process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+}
+
 function getKoreaDayKey() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
@@ -94,6 +98,10 @@ export default async function handler(_req: unknown, res: ResponseLike) {
         dayKey,
         storage: 'supabase',
       });
+    }
+
+    if (isProductionRuntime()) {
+      throw new Error('Missing Supabase config in production runtime');
     }
 
     const store = getMemoryStore();
