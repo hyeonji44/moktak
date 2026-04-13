@@ -1,4 +1,5 @@
 type RequestLike = {
+  body?: { increment?: unknown };
   method?: string;
   url?: string;
   query: { userId?: string | string[]; increment?: string | string[] };
@@ -6,6 +7,7 @@ type RequestLike = {
 
 type ResponseLike = {
   status: (code: number) => ResponseLike;
+  setHeader?: (name: string, value: string) => void;
   json: (body: Record<string, unknown>) => void;
 };
 
@@ -147,6 +149,7 @@ async function writeSupabaseStats(userId: string, increment: number) {
 
 export default async function handler(req: RequestLike, res: ResponseLike) {
   try {
+    res.setHeader?.('Cache-Control', 'no-store, max-age=0');
     const rawUserId = Array.isArray(req.query.userId) ? req.query.userId[0] : req.query.userId;
     const userId = String(rawUserId || '').trim();
 
@@ -160,10 +163,17 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
     const rawIncrementFromUrl = req.url
       ? new URL(req.url, 'https://moktak.local').searchParams.get('increment')
       : null;
-    const increment = toSafeInteger(rawIncrementFromQuery ?? rawIncrementFromUrl, 0);
+    const rawIncrementFromBody =
+      typeof req.body?.increment === 'number' || typeof req.body?.increment === 'string'
+        ? req.body.increment
+        : null;
+    const increment = toSafeInteger(
+      rawIncrementFromBody ?? rawIncrementFromQuery ?? rawIncrementFromUrl,
+      0,
+    );
     const { url, key } = getSupabaseConfig();
 
-    if (req.method !== 'GET') {
+    if (req.method !== 'GET' && req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 

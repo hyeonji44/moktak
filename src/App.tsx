@@ -77,7 +77,7 @@ export default function App() {
   const pendingHits = useRef(0);
 
   const fetchTotals = useCallback(() => {
-    return fetch('/api/hits/total')
+    return fetch(`/api/hits/total?ts=${Date.now()}`, { cache: 'no-store' })
       .then(async res => {
         const data = await readResponseBody(res);
         if (!res.ok) {
@@ -91,7 +91,7 @@ export default function App() {
 
   // Fetch initial count
   useEffect(() => {
-    fetch(`/api/hits/${userId}`)
+    fetch(`/api/hits/${userId}?ts=${Date.now()}`, { cache: 'no-store' })
       .then(async res => {
         const data = await readResponseBody(res);
         if (!res.ok) {
@@ -113,7 +113,12 @@ export default function App() {
     const increment = pendingHits.current || 1;
     pendingHits.current = 0;
 
-    fetch(`/api/hits/${userId}?increment=${increment}`)
+    fetch(`/api/hits/${userId}`, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ increment }),
+    })
       .then(async res => {
         const data = await readResponseBody(res);
         if (!res.ok) {

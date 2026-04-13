@@ -1,5 +1,6 @@
 type ResponseLike = {
   status: (code: number) => ResponseLike;
+  setHeader?: (name: string, value: string) => void;
   json: (body: Record<string, unknown>) => void;
 };
 
@@ -77,6 +78,7 @@ async function supabaseFetch(path: string) {
 
 export default async function handler(_req: unknown, res: ResponseLike) {
   try {
+    res.setHeader?.('Cache-Control', 'no-store, max-age=0');
     const { url, key } = getSupabaseConfig();
     const dayKey = getKoreaDayKey();
 
