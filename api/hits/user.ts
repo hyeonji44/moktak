@@ -114,49 +114,25 @@ async function writeSupabaseStats(userId: string, increment: number) {
     ensureSupabaseDailyStats(dayKey),
   ]);
 
-  const [userRows, statsRows] = (await Promise.all([
-    supabaseRequest(
-      `/daily_visitors?select=hit_count&day_key=eq.${encodeURIComponent(dayKey)}&user_id=eq.${encodeURIComponent(userId)}`,
-    ).then(res => res.json()),
-    supabaseRequest(`/daily_stats?select=total_hits&day_key=eq.${encodeURIComponent(dayKey)}`).then(res => res.json()),
-  ])) as [
-    Array<{ hit_count?: unknown }>,
-    Array<{ total_hits?: unknown }>,
-  ];
-
-  const nextUserCount = toSafeInteger(userRows[0]?.hit_count) + increment;
-  const nextGlobalTotal = toSafeInteger(statsRows[0]?.total_hits) + increment;
-
-  await Promise.all([
-    supabaseRequest(
-      `/daily_visitors?day_key=eq.${encodeURIComponent(dayKey)}&user_id=eq.${encodeURIComponent(userId)}`,
-      {
-        method: 'PATCH',
-        headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify({
-          hit_count: nextUserCount,
-          updated_at: new Date().toISOString(),
-        }),
-      },
-    ),
-    supabaseRequest(`/daily_stats?day_key=eq.${encodeURIComponent(dayKey)}`, {
-      method: 'PATCH',
-      headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({
-        total_hits: nextGlobalTotal,
-        updated_at: new Date().toISOString(),
-      }),
+  const rows = (await supabaseRequest('/rpc/increment_moktak_hit', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_day_key: dayKey,
+      p_user_id: userId,
+      p_increment: increment,
     }),
-  ]);
+  }).then(res => res.json())) as Array<{
+    count?: unknown;
+    global_total?: unknown;
+    visitor_count?: unknown;
+  }>;
 
-  const visitorRows = (await supabaseRequest(
-    `/daily_visitors?select=user_id&day_key=eq.${encodeURIComponent(dayKey)}`,
-  ).then(res => res.json())) as Array<{ user_id?: unknown }>;
+  const row = rows[0] || {};
 
   return {
-    count: nextUserCount,
-    globalTotal: nextGlobalTotal,
-    visitorCount: visitorRows.length,
+    count: toSafeInteger(row.count),
+    globalTotal: toSafeInteger(row.global_total),
+    visitorCount: toSafeInteger(row.visitor_count),
     dayKey,
     storage: 'supabase' as const,
   };
