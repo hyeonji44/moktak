@@ -11,17 +11,6 @@ type ResponseLike = {
   json: (body: Record<string, unknown>) => void;
 };
 
-type MemoryStore = {
-  dayKey: string;
-  total: number;
-  visitors: Set<string>;
-  userCounts: Map<string, number>;
-};
-
-const globalStore = globalThis as typeof globalThis & {
-  __moktakHitStore?: MemoryStore;
-};
-
 function getSupabaseConfig() {
   const rawUrl = process.env.MOKTAK_SUPABASE_URL || process.env.SUPABASE_URL;
   const rawKey = process.env.MOKTAK_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -48,21 +37,6 @@ function getKoreaDayKey() {
 function toSafeInteger(value: unknown, fallback = 0) {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
-}
-
-function getMemoryStore() {
-  const dayKey = getKoreaDayKey();
-
-  if (!globalStore.__moktakHitStore || globalStore.__moktakHitStore.dayKey !== dayKey) {
-    globalStore.__moktakHitStore = {
-      dayKey,
-      total: 0,
-      visitors: new Set(),
-      userCounts: new Map(),
-    };
-  }
-
-  return globalStore.__moktakHitStore;
 }
 
 async function supabaseRequest(path: string, init?: RequestInit) {
@@ -226,53 +200,21 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    if (url && key) {
-      const stats =
-        increment > 0 ? await writeSupabaseStats(userId, increment) : await readSupabaseStats(userId);
-
-      return res.status(200).json({
-        userId,
-        count: stats.count,
-        currentCount: stats.count,
-        globalTotal: stats.globalTotal,
-        visitorCount: stats.visitorCount,
-        dayKey: stats.dayKey,
-        storage: stats.storage,
-        incrementApplied: increment,
-      });
+    if (!url || !key) {
+      throw new Error('Missing Supabase config');
     }
 
-    if (isProductionRuntime()) {
-      throw new Error('Missing Supabase config in production runtime');
-    }
-
-    const store = getMemoryStore();
-    store.visitors.add(userId);
-
-    if (increment > 0) {
-      const nextCount = (store.userCounts.get(userId) || 0) + increment;
-      store.userCounts.set(userId, nextCount);
-      store.total += increment;
-
-      return res.status(200).json({
-        userId,
-        count: nextCount,
-        currentCount: nextCount,
-        globalTotal: store.total,
-        visitorCount: store.visitors.size,
-        dayKey: store.dayKey,
-        storage: 'memory',
-        incrementApplied: increment,
-      });
-    }
+    const stats =
+      increment > 0 ? await writeSupabaseStats(userId, increment) : await readSupabaseStats(userId);
 
     return res.status(200).json({
       userId,
-      count: store.userCounts.get(userId) || 0,
-      globalTotal: store.total,
-      visitorCount: store.visitors.size,
-      dayKey: store.dayKey,
-      storage: 'memory',
+      count: stats.count,
+      currentCount: stats.count,
+      globalTotal: stats.globalTotal,
+      visitorCount: stats.visitorCount,
+      dayKey: stats.dayKey,
+      storage: stats.storage,
       incrementApplied: increment,
     });
   } catch (error) {

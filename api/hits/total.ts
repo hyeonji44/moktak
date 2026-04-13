@@ -4,17 +4,6 @@ type ResponseLike = {
   json: (body: Record<string, unknown>) => void;
 };
 
-type MemoryStore = {
-  dayKey: string;
-  total: number;
-  visitors: Set<string>;
-  userCounts: Map<string, number>;
-};
-
-const globalStore = globalThis as typeof globalThis & {
-  __moktakHitStore?: MemoryStore;
-};
-
 function getSupabaseConfig() {
   const rawUrl = process.env.MOKTAK_SUPABASE_URL || process.env.SUPABASE_URL;
   const rawKey = process.env.MOKTAK_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -36,21 +25,6 @@ function getKoreaDayKey() {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
-}
-
-function getMemoryStore() {
-  const dayKey = getKoreaDayKey();
-
-  if (!globalStore.__moktakHitStore || globalStore.__moktakHitStore.dayKey !== dayKey) {
-    globalStore.__moktakHitStore = {
-      dayKey,
-      total: 0,
-      visitors: new Set(),
-      userCounts: new Map(),
-    };
-  }
-
-  return globalStore.__moktakHitStore;
 }
 
 function toSafeInteger(value: unknown) {
@@ -86,30 +60,20 @@ export default async function handler(_req: unknown, res: ResponseLike) {
     const { url, key } = getSupabaseConfig();
     const dayKey = getKoreaDayKey();
 
-    if (url && key) {
-      const [statsRows, visitorRows] = (await Promise.all([
-        supabaseFetch(`/daily_stats?select=total_hits&day_key=eq.${encodeURIComponent(dayKey)}`),
-        supabaseFetch(`/daily_visitors?select=user_id&day_key=eq.${encodeURIComponent(dayKey)}`),
-      ])) as [Array<{ total_hits?: unknown }>, Array<{ user_id?: unknown }>];
-
-      return res.status(200).json({
-        total: toSafeInteger(statsRows[0]?.total_hits),
-        visitors: visitorRows.length,
-        dayKey,
-        storage: 'supabase',
-      });
+    if (!url || !key) {
+      throw new Error('Missing Supabase config');
     }
 
-    if (isProductionRuntime()) {
-      throw new Error('Missing Supabase config in production runtime');
-    }
+    const [statsRows, visitorRows] = (await Promise.all([
+      supabaseFetch(`/daily_stats?select=total_hits&day_key=eq.${encodeURIComponent(dayKey)}`),
+      supabaseFetch(`/daily_visitors?select=user_id&day_key=eq.${encodeURIComponent(dayKey)}`),
+    ])) as [Array<{ total_hits?: unknown }>, Array<{ user_id?: unknown }>];
 
-    const store = getMemoryStore();
     return res.status(200).json({
-      total: store.total,
-      visitors: store.visitors.size,
-      dayKey: store.dayKey,
-      storage: 'memory',
+      total: toSafeInteger(statsRows[0]?.total_hits),
+      visitors: visitorRows.length,
+      dayKey,
+      storage: 'supabase',
     });
   } catch (error) {
     console.error('Failed to read totals:', error);
