@@ -70,8 +70,8 @@ export default function App() {
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
   const [userId] = useState(getOrCreateUserId);
   
-  // Custom Stick Cursor Style - Larger and clearer
-  const stickCursor = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><path d='M10 54 L54 10' stroke='%238b4513' stroke-width='8' stroke-linecap='round'/><circle cx='54' cy='10' r='6' fill='%238b4513'/></svg>") 54 10, auto`;
+  // 마우스 포인터를 목탁 손잡이로
+  const stickCursor = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='76' height='76' viewBox='0 0 76 76'><path d='M12 64 L64 12' stroke='%23c7772f' stroke-width='10' stroke-linecap='round'/><circle cx='64' cy='12' r='7' fill='%23c7772f'/></svg>") 64 12, auto`;
 
   // For batching updates to backend
   const pendingHits = useRef(0);
@@ -195,10 +195,11 @@ export default function App() {
           animate={{ scale: 1, opacity: 1 }}
           className="absolute -top-24 flex flex-col items-center select-none"
         >
-          <span className="text-7xl font-black text-[#7E4412] tabular-nums drop-shadow-sm">{count}</span>
+          {/* 내가 두드린 횟수 */}
+          <span className="text-7xl font-black text-[#8b4513] tabular-nums drop-shadow-sm">{count}</span>
         </motion.div>
 
-        {/* The Moktak */}
+        {/* 목탁 */}
         <motion.button
           onPointerDown={handleTap}
           animate={{ 
@@ -219,14 +220,13 @@ export default function App() {
             
             {/* 목탁 구멍 */}
             <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-12 h-12 bg-[#1a0d04] rounded-[150%] shadow-inner flex items-center justify-center overflow-hidden">
-              {/* <div className="w-full h-1.5 bg-[#0a0502] opacity-60" /> */}
             </div>
 
 
           </div>
 
           {/* 목탁 손잡이 */}
-          <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-52 h-40 border-[28px] border-[#994500] rounded-t-[40%] z-0 shadow-md" />
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-52 h-40 border-[28px] border-[#8b4513] rounded-t-[40%] z-0 shadow-md" />
         </motion.button>
 
         <AnimatePresence> 
@@ -248,6 +248,8 @@ export default function App() {
           <span>오늘 두드려진 목탁 횟수: <span className="text-[#a0522d]">{globalTotal.toLocaleString()}</span></span>
           <span>오늘 방문한 사용자: <span className="text-[#a0522d]">{visitorCount.toLocaleString()}명</span></span>
       </div>
+
+      <p className="mt-20 text-sm text-[#93a1a1]z-10">문의 | hyeonji443@gmail.com</p>
     </div>
   );
 }
