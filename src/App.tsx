@@ -182,7 +182,7 @@ export default function App() {
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-6 sm:mb-12 z-10 select-none"
       >
-        <h1 className="text-5xl tracking-tight text-[#073642] mb-2 font-['NostalgicPoliceVibe']">목탁 마음 다스리기</h1>
+        <h1 className="text-5xl tracking-tight text-[#073642] mb-2 font-['NostalgicPoliceVibe']">목탁소리</h1>
         <p className="text-lg text-[#93a1a1] mt-3 mb-8 sm:mt-4 sm:mb-20">화가 진정될 때까지 두드려보세요...</p>
       </motion.div>
 
