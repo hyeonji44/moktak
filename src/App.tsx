@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Howl } from 'howler';
-import { Heart, Flame, Info, RotateCcw, Trophy } from 'lucide-react';
+import { Heart, Flame, Info, Trophy } from 'lucide-react';
 import moktakSoundFile from '../sound.wav';
 
 const STORAGE_USER_ID_KEY = 'moktak-user-id';
@@ -255,19 +255,6 @@ export default function App() {
           <span>오늘 두드려진 목탁 횟수: <span className="text-[#a0522d]">{globalTotal.toLocaleString()}</span></span>
           <span>오늘 방문한 사용자: <span className="text-[#a0522d]">{visitorCount.toLocaleString()}명</span></span>
       </div>
-
-      {/* 초기화 버튼 */}
-      <button 
-        onClick={() => setCount(0)}
-        className="absolute bottom-8 right-8 p-3 bg-[#eee8d5] hover:bg-[#93a1a1] hover:text-white rounded-full transition-colors group"
-        title="초기화"
-      >
-        <RotateCcw size={20} className="group-active:rotate-180 transition-transform duration-500" />
-      </button>
-
-      
-    
-      
     </div>
   );
 }
