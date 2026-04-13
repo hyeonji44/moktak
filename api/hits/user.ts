@@ -63,7 +63,7 @@ async function ensureSupabaseVisitor(userId: string, dayKey: string) {
   await supabaseRequest('/daily_visitors?on_conflict=day_key,user_id', {
     method: 'POST',
     headers: {
-      Prefer: 'resolution=merge-duplicates,return=minimal',
+      Prefer: 'resolution=ignore-duplicates,return=minimal',
     },
     body: JSON.stringify([{ day_key: dayKey, user_id: userId, hit_count: 0 }]),
   });
@@ -73,7 +73,7 @@ async function ensureSupabaseDailyStats(dayKey: string) {
   await supabaseRequest('/daily_stats?on_conflict=day_key', {
     method: 'POST',
     headers: {
-      Prefer: 'resolution=merge-duplicates,return=minimal',
+      Prefer: 'resolution=ignore-duplicates,return=minimal',
     },
     body: JSON.stringify([{ day_key: dayKey, total_hits: 0 }]),
   });
