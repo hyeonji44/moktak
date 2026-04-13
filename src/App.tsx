@@ -169,7 +169,7 @@ export default function App() {
 
   return (
     <div 
-      className="min-h-screen bg-[#fdf6e3] text-[#586e75] font-sans selection:bg-[#eee8d5] overflow-hidden flex flex-col items-center justify-center p-4 relative"
+      className="h-screen min-h-[100svh] bg-[#fdf6e3] text-[#586e75] font-sans selection:bg-[#eee8d5] overflow-hidden flex flex-col items-center justify-center p-4 relative"
       style={{ cursor: stickCursor }}
     >
       {/* Background Zen Pattern */}
