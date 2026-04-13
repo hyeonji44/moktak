@@ -36,6 +36,7 @@ function readCountPayload(data: any) {
     count: toSafeNumber(data?.count ?? data?.currentCount),
     globalTotal: toSafeNumber(data?.globalTotal ?? data?.total),
     visitorCount: toSafeNumber(data?.visitorCount ?? data?.visitors),
+    incrementApplied: toSafeNumber(data?.incrementApplied),
   };
 }
 
@@ -119,7 +120,7 @@ export default function App() {
           throw new Error(`Failed to sync hits: ${res.status} ${JSON.stringify(data)}`);
         }
         const stats = readCountPayload(data);
-        setCount(stats.count);
+        setCount(prev => Math.max(toSafeNumber(prev), stats.count));
         setGlobalTotal(stats.globalTotal);
         setVisitorCount(stats.visitorCount);
       })

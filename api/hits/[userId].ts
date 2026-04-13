@@ -1,5 +1,6 @@
 type RequestLike = {
   method?: string;
+  url?: string;
   query: { userId?: string | string[]; increment?: string | string[] };
 };
 
@@ -153,8 +154,13 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       return res.status(400).json({ error: 'Missing userId' });
     }
 
-    const rawIncrement = Array.isArray(req.query.increment) ? req.query.increment[0] : req.query.increment;
-    const increment = toSafeInteger(rawIncrement, 0);
+    const rawIncrementFromQuery = Array.isArray(req.query.increment)
+      ? req.query.increment[0]
+      : req.query.increment;
+    const rawIncrementFromUrl = req.url
+      ? new URL(req.url, 'https://moktak.local').searchParams.get('increment')
+      : null;
+    const increment = toSafeInteger(rawIncrementFromQuery ?? rawIncrementFromUrl, 0);
     const { url, key } = getSupabaseConfig();
 
     if (req.method !== 'GET') {
@@ -173,6 +179,7 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
         visitorCount: stats.visitorCount,
         dayKey: stats.dayKey,
         storage: stats.storage,
+        incrementApplied: increment,
       });
     }
 
@@ -192,6 +199,7 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
         visitorCount: store.visitors.size,
         dayKey: store.dayKey,
         storage: 'memory',
+        incrementApplied: increment,
       });
     }
 
@@ -202,6 +210,7 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       visitorCount: store.visitors.size,
       dayKey: store.dayKey,
       storage: 'memory',
+      incrementApplied: increment,
     });
   } catch (error) {
     console.error('Failed to handle user stats:', error);
