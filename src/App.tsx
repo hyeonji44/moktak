@@ -60,7 +60,6 @@ export default function App() {
 
   // For batching updates to backend
   const pendingHits = useRef(0);
-  const syncTimer = useRef<NodeJS.Timeout | null>(null);
 
   const fetchTotals = useCallback(() => {
     return fetch('/api/hits/total')
@@ -92,18 +91,11 @@ export default function App() {
 
     fetchTotals().catch(err => console.error("Failed to fetch total:", err));
 
-    // Poll for global total every 10 seconds
-    const interval = setInterval(() => {
-      fetchTotals().catch(err => console.error("Failed to fetch total:", err));
-    }, 10000);
-
-    return () => clearInterval(interval);
+    return undefined;
   }, [fetchTotals, userId]);
 
   const syncWithBackend = useCallback(() => {
-    if (pendingHits.current === 0) return;
-
-    const increment = pendingHits.current;
+    const increment = pendingHits.current || 1;
     pendingHits.current = 0;
 
     fetch(`/api/hits/${userId}`, {
@@ -144,7 +136,7 @@ export default function App() {
 
     // Update local state immediately for responsiveness
     setCount(prev => toSafeNumber(prev) + 1);
-    pendingHits.current += 1;
+    pendingHits.current = 1;
 
     // Visual feedback
     setIsTapping(true);
@@ -160,9 +152,7 @@ export default function App() {
       setRipples(prev => prev.filter(r => r.id !== newRipple.id));
     }, 1000);
 
-    // Debounced sync (Batching)
-    if (syncTimer.current) clearTimeout(syncTimer.current);
-    syncTimer.current = setTimeout(syncWithBackend, 500);
+    syncWithBackend();
   };
 
   return (

@@ -1,14 +1,3 @@
-type RequestLike = {
-  body?: { increment?: unknown };
-  method?: string;
-  query: { slug?: string[] | string };
-};
-
-type ResponseLike = {
-  status: (code: number) => ResponseLike;
-  json: (body: Record<string, unknown>) => void;
-};
-
 type HitStats = {
   count: number;
   globalTotal: number;
@@ -51,10 +40,6 @@ function toSafeInteger(value: unknown, fallback = 0) {
     return fallback;
   }
   return Math.max(0, Math.floor(parsed));
-}
-
-function sendJson(res: ResponseLike, status: number, body: Record<string, unknown>) {
-  res.status(status).json(body);
 }
 
 function getMemoryStore() {
@@ -233,7 +218,15 @@ function incrementMemoryStats(userId: string, increment: number): HitStats {
   };
 }
 
-async function readStats(userId: string) {
+export function makeErrorBody(error: unknown, fallback: string) {
+  return {
+    error: fallback,
+    details: error instanceof Error ? error.message : String(error),
+    hasSupabaseConfig: hasSupabaseConfig(),
+  };
+}
+
+export async function readUserStats(userId: string) {
   if (hasSupabaseConfig()) {
     return getSupabaseStats(userId);
   }
@@ -241,15 +234,17 @@ async function readStats(userId: string) {
   return getMemoryStats(userId);
 }
 
-async function writeStats(userId: string, increment: number) {
+export async function writeUserStats(userId: string, increment: number) {
+  const safeIncrement = toSafeInteger(increment, 1) || 1;
+
   if (hasSupabaseConfig()) {
-    return incrementSupabaseStats(userId, increment);
+    return incrementSupabaseStats(userId, safeIncrement);
   }
 
-  return incrementMemoryStats(userId, increment);
+  return incrementMemoryStats(userId, safeIncrement);
 }
 
-async function readTotals() {
+export async function readTotals() {
   const dayKey = getKoreaDayKey();
 
   if (hasSupabaseConfig()) {
@@ -271,81 +266,4 @@ async function readTotals() {
     dayKey: store.dayKey,
     storage: 'memory' as const,
   };
-}
-
-export default async function handler(req: RequestLike, res: ResponseLike) {
-  const slug = Array.isArray(req.query.slug) ? req.query.slug : [req.query.slug].filter(Boolean);
-
-  if (req.method === 'GET' && slug.length === 1 && slug[0] === 'total') {
-    try {
-      const stats = await readTotals();
-      return sendJson(res, 200, {
-        total: stats.globalTotal,
-        visitors: stats.visitorCount,
-        dayKey: stats.dayKey,
-        storage: stats.storage,
-      });
-    } catch (error) {
-      console.error('Failed to read totals:', error);
-      return sendJson(res, 500, {
-        error: 'Failed to read totals',
-        details: error instanceof Error ? error.message : String(error),
-        hasSupabaseConfig: hasSupabaseConfig(),
-      });
-    }
-  }
-
-  if (slug.length !== 1) {
-    return sendJson(res, 404, { error: 'Not found' });
-  }
-
-  const userId = String(slug[0] || '').trim();
-  if (!userId) {
-    return sendJson(res, 400, { error: 'Missing userId' });
-  }
-
-  if (req.method === 'GET') {
-    try {
-      const stats = await readStats(userId);
-      return sendJson(res, 200, {
-        userId,
-        count: stats.count,
-        globalTotal: stats.globalTotal,
-        visitorCount: stats.visitorCount,
-        dayKey: stats.dayKey,
-        storage: stats.storage,
-      });
-    } catch (error) {
-      console.error('Failed to read user stats:', error);
-      return sendJson(res, 500, {
-        error: 'Failed to read user stats',
-        details: error instanceof Error ? error.message : String(error),
-        hasSupabaseConfig: hasSupabaseConfig(),
-      });
-    }
-  }
-
-  if (req.method === 'POST') {
-    try {
-      const increment = toSafeInteger(req.body?.increment, 1) || 1;
-      const stats = await writeStats(userId, increment);
-      return sendJson(res, 200, {
-        success: true,
-        currentCount: stats.count,
-        globalTotal: stats.globalTotal,
-        visitorCount: stats.visitorCount,
-        dayKey: stats.dayKey,
-        storage: stats.storage,
-      });
-    } catch (error) {
-      console.error('Failed to write user stats:', error);
-      return sendJson(res, 500, {
-        error: 'Failed to write user stats',
-        details: error instanceof Error ? error.message : String(error),
-        hasSupabaseConfig: hasSupabaseConfig(),
-      });
-    }
-  }
-
-  return sendJson(res, 405, { error: 'Method not allowed' });
 }
