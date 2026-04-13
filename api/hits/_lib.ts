@@ -122,20 +122,17 @@ async function fetchSupabaseTotals(dayKey: string) {
       headers: getSupabaseHeaders(),
     }),
     supabaseFetch(`/daily_visitors?select=user_id&day_key=eq.${encodeURIComponent(dayKey)}`, {
-      method: 'HEAD',
-      headers: getSupabaseHeaders({
-        Prefer: 'count=exact',
-      }),
+      method: 'GET',
+      headers: getSupabaseHeaders(),
     }),
   ]);
 
   const statsRows = (await statsResponse.json()) as Array<{ total_hits?: unknown }>;
-  const contentRange = visitorsResponse.headers.get('content-range') || '0-0/0';
-  const visitorCount = contentRange.split('/')[1] || '0';
+  const visitorRows = (await visitorsResponse.json()) as Array<{ user_id?: unknown }>;
 
   return {
     globalTotal: toSafeInteger(statsRows[0]?.total_hits),
-    visitorCount: toSafeInteger(visitorCount),
+    visitorCount: visitorRows.length,
   };
 }
 

@@ -3,7 +3,7 @@ import { makeErrorBody, readUserStats, writeUserStats } from './_lib';
 type RequestLike = {
   body?: { increment?: unknown };
   method?: string;
-  query: { userId?: string | string[] };
+  query: { userId?: string | string[]; increment?: string | string[] };
 };
 
 type ResponseLike = {
@@ -21,6 +21,21 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
 
   if (req.method === 'GET') {
     try {
+      const rawIncrement = Array.isArray(req.query.increment) ? req.query.increment[0] : req.query.increment;
+      const increment = Number(rawIncrement ?? 0);
+
+      if (Number.isFinite(increment) && increment > 0) {
+        const updatedStats = await writeUserStats(userId, increment);
+        return res.status(200).json({
+          success: true,
+          currentCount: updatedStats.count,
+          globalTotal: updatedStats.globalTotal,
+          visitorCount: updatedStats.visitorCount,
+          dayKey: updatedStats.dayKey,
+          storage: updatedStats.storage,
+        });
+      }
+
       const stats = await readUserStats(userId);
       return res.status(200).json({
         userId,
