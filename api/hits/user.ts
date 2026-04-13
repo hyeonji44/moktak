@@ -21,10 +21,6 @@ function getSupabaseConfig() {
   };
 }
 
-function isProductionRuntime() {
-  return process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
-}
-
 function getKoreaDayKey() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
@@ -136,9 +132,7 @@ async function writeSupabaseStats(userId: string, increment: number) {
       `/daily_visitors?day_key=eq.${encodeURIComponent(dayKey)}&user_id=eq.${encodeURIComponent(userId)}`,
       {
         method: 'PATCH',
-        headers: {
-          Prefer: 'return=minimal',
-        },
+        headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({
           hit_count: nextUserCount,
           updated_at: new Date().toISOString(),
@@ -147,9 +141,7 @@ async function writeSupabaseStats(userId: string, increment: number) {
     ),
     supabaseRequest(`/daily_stats?day_key=eq.${encodeURIComponent(dayKey)}`, {
       method: 'PATCH',
-      headers: {
-        Prefer: 'return=minimal',
-      },
+      headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({
         total_hits: nextGlobalTotal,
         updated_at: new Date().toISOString(),
@@ -194,14 +186,9 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       rawIncrementFromBody ?? rawIncrementFromQuery ?? rawIncrementFromUrl,
       0,
     );
-    const { url, key } = getSupabaseConfig();
 
     if (req.method !== 'GET' && req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' });
-    }
-
-    if (!url || !key) {
-      throw new Error('Missing Supabase config');
     }
 
     const stats =
