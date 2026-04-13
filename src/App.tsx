@@ -31,6 +31,14 @@ function toSafeNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function readCountPayload(data: any) {
+  return {
+    count: toSafeNumber(data?.count ?? data?.currentCount),
+    globalTotal: toSafeNumber(data?.globalTotal ?? data?.total),
+    visitorCount: toSafeNumber(data?.visitorCount ?? data?.visitors),
+  };
+}
+
 // 클릭할 때 나는 목탁 소리
 const moktakSound = new Howl({
   src: [moktakSoundFile],
@@ -54,6 +62,21 @@ export default function App() {
   const pendingHits = useRef(0);
   const syncTimer = useRef<NodeJS.Timeout | null>(null);
 
+  const fetchTotals = useCallback(() => {
+    return fetch('/api/hits/total')
+      .then(async res => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch total: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        const stats = readCountPayload(data);
+        setGlobalTotal(stats.globalTotal);
+        setVisitorCount(stats.visitorCount);
+      });
+  }, []);
+
   // Fetch initial count
   useEffect(() => {
     fetch(`/api/hits/${userId}`)
@@ -64,30 +87,22 @@ export default function App() {
         return res.json();
       })
       .then(data => {
-        setCount(toSafeNumber(data.count));
-        setGlobalTotal(toSafeNumber(data.globalTotal));
-        setVisitorCount(toSafeNumber(data.visitorCount));
+        const stats = readCountPayload(data);
+        setCount(stats.count);
+        setGlobalTotal(stats.globalTotal);
+        setVisitorCount(stats.visitorCount);
       })
       .catch(err => console.error("Failed to fetch hits:", err));
 
+    fetchTotals().catch(err => console.error("Failed to fetch total:", err));
+
     // Poll for global total every 10 seconds
     const interval = setInterval(() => {
-      fetch('/api/hits/total')
-        .then(async res => {
-          if (!res.ok) {
-            throw new Error(`Failed to fetch total: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then(data => {
-          setGlobalTotal(toSafeNumber(data.total));
-          setVisitorCount(toSafeNumber(data.visitors));
-        })
-        .catch(err => console.error("Failed to fetch total:", err));
+      fetchTotals().catch(err => console.error("Failed to fetch total:", err));
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [fetchTotals, userId]);
 
   const syncWithBackend = useCallback(() => {
     if (pendingHits.current === 0) return;
@@ -99,9 +114,22 @@ export default function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ increment }),
-    }).catch(err => {
-      console.error("Sync failed, restoring pending hits:", err);
-      pendingHits.current += increment;
+    })
+      .then(async res => {
+        if (!res.ok) {
+          throw new Error(`Failed to sync hits: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        const stats = readCountPayload(data);
+        setCount(stats.count);
+        setGlobalTotal(stats.globalTotal);
+        setVisitorCount(stats.visitorCount);
+      })
+      .catch(err => {
+        console.error("Sync failed, restoring pending hits:", err);
+        pendingHits.current += increment;
     });
   }, [userId]);
 
