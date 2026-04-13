@@ -138,13 +138,6 @@ export default function App() {
   }, [fetchTotals, userId]);
 
   const handleTap = (e: React.PointerEvent<HTMLButtonElement>) => {
-    // Start BGM on first interaction (Browser policy)
-    if ('vibrate' in navigator) {
-  navigator.vibrate(50); // 50ms 동안 짧게 진동
-}
-
-
-
     // Play sound
     try {
       moktakSound.play();
