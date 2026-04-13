@@ -183,7 +183,7 @@ export default function App() {
         className="text-center mb-6 sm:mb-12 z-10 select-none"
       >
         <h1 className="text-5xl tracking-tight text-[#073642] mb-2 font-['NostalgicPoliceVibe']">목탁소리</h1>
-        <p className="text-lg text-[#93a1a1] mt-3 mb-8 sm:mt-4 sm:mb-20">화가 진정될 때까지 두드려보세요...</p>
+        <p className="text-lg text-[#93a1a1] mt-3 mb-8 sm:mt-4 sm:mb-20">화가 진정될 때까지 쳐보세요...</p>
       </motion.div>
 
       {/* Main Moktak Area */}
@@ -245,8 +245,8 @@ export default function App() {
 
       {/* Footer Stats/Info */}
       <div className="mt-10 sm:mt-20 grid grid-rows-2 gap-2 text-center max-w-lg w-full">
-          <span>오늘 두드려진 목탁 횟수: <span className="text-[#a0522d]">{globalTotal.toLocaleString()}</span></span>
-          <span>오늘 방문한 사용자: <span className="text-[#a0522d]">{visitorCount.toLocaleString()}명</span></span>
+          <span>오늘 울려펴진 목탁소리: <span className="text-[#a0522d]">{globalTotal.toLocaleString()}</span></span>
+          <span>오늘 방문한 목탁러: <span className="text-[#a0522d]">{visitorCount.toLocaleString()}명</span></span>
       </div>
 
       <p className="mt-20 text-sm text-[#93a1a1]z-10">문의 | hyeonji443@gmail.com</p>
