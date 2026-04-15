@@ -11,6 +11,8 @@ type ResponseLike = {
   json: (body: Record<string, unknown>) => void;
 };
 
+const DAILY_COUNT_LIMIT = 10000;
+
 function getSupabaseConfig() {
   const rawUrl = process.env.MOKTAK_SUPABASE_URL || process.env.SUPABASE_URL;
   const rawKey = process.env.MOKTAK_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -114,12 +116,23 @@ async function writeSupabaseStats(userId: string, increment: number) {
     ensureSupabaseDailyStats(dayKey),
   ]);
 
+  const currentStats = await readSupabaseStats(userId);
+  const remaining = Math.max(0, DAILY_COUNT_LIMIT - currentStats.count);
+  const appliedIncrement = Math.min(remaining, increment);
+
+  if (appliedIncrement <= 0) {
+    return {
+      ...currentStats,
+      incrementApplied: 0,
+    };
+  }
+
   const rows = (await supabaseRequest('/rpc/increment_moktak_hit', {
     method: 'POST',
     body: JSON.stringify({
       p_day_key: dayKey,
       p_user_id: userId,
-      p_increment: increment,
+      p_increment: appliedIncrement,
     }),
   }).then(res => res.json())) as Array<{
     count?: unknown;
@@ -135,6 +148,7 @@ async function writeSupabaseStats(userId: string, increment: number) {
     visitorCount: toSafeInteger(row.visitor_count),
     dayKey,
     storage: 'supabase' as const,
+    incrementApplied: appliedIncrement,
   };
 }
 
@@ -178,7 +192,7 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       visitorCount: stats.visitorCount,
       dayKey: stats.dayKey,
       storage: stats.storage,
-      incrementApplied: increment,
+      incrementApplied: 'incrementApplied' in stats ? stats.incrementApplied : increment,
     });
   } catch (error) {
     console.error('Failed to handle user stats:', error);

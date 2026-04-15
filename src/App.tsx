@@ -6,10 +6,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Howl } from 'howler';
-import { Heart, Flame, Info, Trophy } from 'lucide-react';
-import moktakSoundFile from '../sound.wav';
+import moktakSoundFile from '../sound.wav'; // 목탁소리 
 
 const STORAGE_USER_ID_KEY = 'moktak-user-id';
+const DAILY_COUNT_LIMIT = 10000; // 일일 한도 횟수
+const LIMIT_TOAST_COOLDOWN_MS = 2000;
 
 function getOrCreateUserId() {
   if (typeof window === 'undefined') {
@@ -40,6 +41,16 @@ function readCountPayload(data: any) {
   };
 }
 
+function hasCountPayload(data: any) {
+  return (
+    data &&
+    typeof data === 'object' &&
+    ['count', 'currentCount', 'globalTotal', 'total', 'visitorCount', 'visitors'].some(key =>
+      Number.isFinite(Number(data?.[key])),
+    )
+  );
+}
+
 async function readResponseBody(res: Response) {
   const text = await res.text();
 
@@ -68,6 +79,8 @@ export default function App() {
   const [visitorCount, setVisitorCount] = useState(0);
   const [isTapping, setIsTapping] = useState(false);
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [toastMessage, setToastMessage] = useState('');
+  const [isUpdateNoteOpen, setIsUpdateNoteOpen] = useState(false);
   const [userId] = useState(getOrCreateUserId);
   
   // 마우스 포인터를 목탁 손잡이로
@@ -75,6 +88,22 @@ export default function App() {
 
   // For batching updates to backend
   const pendingHits = useRef(0);
+  const countRef = useRef(0);
+  const toastTimerRef = useRef<number | null>(null);
+  const lastLimitToastAtRef = useRef(0);
+
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMessage('');
+      toastTimerRef.current = null;
+    }, 2200);
+  }, []);
 
   const fetchTotals = useCallback(() => {
     return fetch(`/api/hits/total?ts=${Date.now()}`, { cache: 'no-store' })
@@ -82,6 +111,9 @@ export default function App() {
         const data = await readResponseBody(res);
         if (!res.ok) {
           throw new Error(`Failed to fetch total: ${res.status} ${JSON.stringify(data)}`);
+        }
+        if (!hasCountPayload(data)) {
+          throw new Error(`Invalid total payload: ${JSON.stringify(data)}`);
         }
         const stats = readCountPayload(data);
         setGlobalTotal(stats.globalTotal);
@@ -91,16 +123,25 @@ export default function App() {
 
   // Fetch initial count
   useEffect(() => {
+    countRef.current = count;
+  }, [count]);
+
+  useEffect(() => {
     fetch(`/api/hits/user?userId=${encodeURIComponent(userId)}&ts=${Date.now()}`, { cache: 'no-store' })
       .then(async res => {
         const data = await readResponseBody(res);
         if (!res.ok) {
           throw new Error(`Failed to fetch hits: ${res.status} ${JSON.stringify(data)}`);
         }
+        if (!hasCountPayload(data)) {
+          throw new Error(`Invalid hits payload: ${JSON.stringify(data)}`);
+        }
         const stats = readCountPayload(data);
-        setCount(prev => Math.max(toSafeNumber(prev), stats.count));
-        setGlobalTotal(prev => Math.max(toSafeNumber(prev), stats.globalTotal));
-        setVisitorCount(prev => Math.max(toSafeNumber(prev), stats.visitorCount));
+        const nextCount = Math.min(DAILY_COUNT_LIMIT, stats.count);
+        countRef.current = nextCount;
+        setCount(nextCount);
+        setGlobalTotal(stats.globalTotal);
+        setVisitorCount(stats.visitorCount);
       })
       .catch(err => console.error("Failed to fetch hits:", err));
 
@@ -114,7 +155,10 @@ export default function App() {
   }, [fetchTotals, userId]);
 
   const syncWithBackend = useCallback(() => {
-    const increment = pendingHits.current || 1;
+    const increment = pendingHits.current;
+    if (increment <= 0) {
+      return;
+    }
     pendingHits.current = 0;
 
     fetch(`/api/hits/user?userId=${encodeURIComponent(userId)}&increment=${increment}&ts=${Date.now()}`, {
@@ -125,10 +169,15 @@ export default function App() {
         if (!res.ok) {
           throw new Error(`Failed to sync hits: ${res.status} ${JSON.stringify(data)}`);
         }
+        if (!hasCountPayload(data)) {
+          throw new Error(`Invalid sync payload: ${JSON.stringify(data)}`);
+        }
         const stats = readCountPayload(data);
-        setCount(prev => Math.max(toSafeNumber(prev), stats.count));
-        setGlobalTotal(prev => Math.max(toSafeNumber(prev), stats.globalTotal));
-        setVisitorCount(prev => Math.max(toSafeNumber(prev), stats.visitorCount));
+        const nextCount = Math.min(DAILY_COUNT_LIMIT, stats.count);
+        countRef.current = nextCount;
+        setCount(nextCount);
+        setGlobalTotal(stats.globalTotal);
+        setVisitorCount(stats.visitorCount);
         fetchTotals().catch(err => console.error("Failed to refresh total after sync:", err));
       })
       .catch(err => {
@@ -138,6 +187,15 @@ export default function App() {
   }, [fetchTotals, userId]);
 
   const handleTap = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (countRef.current >= DAILY_COUNT_LIMIT) {
+      const now = Date.now();
+      if (now - lastLimitToastAtRef.current >= LIMIT_TOAST_COOLDOWN_MS) {
+        showToast('목탁은 하루에 10,000회만 칠 수 있어요.');
+        lastLimitToastAtRef.current = now;
+      }
+      return;
+    }
+
     // Play sound
     try {
       moktakSound.play();
@@ -146,9 +204,17 @@ export default function App() {
     }
 
     // Update local state immediately for responsiveness
-    setCount(prev => toSafeNumber(prev) + 1);
+    const nextCount = Math.min(DAILY_COUNT_LIMIT, toSafeNumber(countRef.current) + 1);
+    const appliedIncrement = nextCount - toSafeNumber(countRef.current);
+
+    if (appliedIncrement <= 0) {
+      return;
+    }
+
+    countRef.current = nextCount;
+    setCount(nextCount);
     setGlobalTotal(prev => toSafeNumber(prev) + 1);
-    pendingHits.current = 1;
+    pendingHits.current += appliedIncrement;
 
     // Visual feedback
     setIsTapping(true);
@@ -167,6 +233,14 @@ export default function App() {
     syncWithBackend();
   };
 
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div 
       className="h-screen min-h-[100svh] bg-[#fdf6e3] text-[#586e75] font-sans selection:bg-[#eee8d5] overflow-hidden flex flex-col items-center justify-center p-4 relative"
@@ -175,6 +249,14 @@ export default function App() {
       {/* Background Zen Pattern */}
       <div className="absolute inset-0 opacity-5 pointer-events-none" 
            style={{ backgroundImage: 'radial-gradient(#586e75 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+
+      <button
+        type="button"
+        onClick={() => setIsUpdateNoteOpen(true)}
+        className="absolute right-4 top-4 z-20 rounded-full border border-[#d6c5a4] bg-[#f8efda]/95 px-4 py-2 text-sm font-medium text-[#7E4412] shadow-sm transition hover:bg-[#f3e5c5]"
+      >
+        업데이트 노트
+      </button>
 
       {/* Header */}
       <motion.div 
@@ -256,6 +338,61 @@ export default function App() {
       >
         문의 | hyeonji443@gmail.com
       </a>
+
+      <AnimatePresence>
+        {toastMessage ? (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ duration: 0.2 }}
+            className="fixed left-1/2 top-6 z-30 -translate-x-1/2 rounded-full bg-[#073642] px-5 py-3 text-sm font-medium text-[#fdf6e3] shadow-lg"
+          >
+            {toastMessage}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isUpdateNoteOpen ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex items-center justify-center bg-[#073642]/45 px-4"
+            onClick={() => setIsUpdateNoteOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-[28px] bg-[#fff] p-6 text-[#586e75] shadow-[0_24px_80px_rgba(7,54,66,0.25)]"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="mt-2 text-2xl font-bold text-[#073642]">업데이트 노트</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsUpdateNoteOpen(false)}
+                  className="rounded-full bg-[#f2f2f2] px-3 py-1 text-sm text-[#586e75] transition hover:bg-[#e6deca]"
+                >
+                  닫기
+                </button>
+              </div>
+
+              <div className="space-y-4 text-sm leading-6">
+                <div className="rounded-2xl bg-[#f2f2f2] p-4">
+                  <p className="font-semibold text-[#7E4412]">2026.04.16</p>
+                  <p className="mt-2">하루에 목탁을 칠 수 있는 최대 한도를 설정했어요.</p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
