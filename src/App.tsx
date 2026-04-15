@@ -14,7 +14,6 @@ const LIMIT_TOAST_COOLDOWN_MS = 2000;
 const DRAG_START_DISTANCE_PX = 22;
 const DRAG_REPEAT_DISTANCE_PX = 30;
 const DRAG_REPEAT_INTERVAL_MS = 90;
-const TAP_VIBRATION_MS = 12;
 
 function getOrCreateUserId() {
   if (typeof window === 'undefined') {
@@ -73,7 +72,6 @@ async function readResponseBody(res: Response) {
 const moktakSound = new Howl({
   src: [moktakSoundFile],
   volume: 1.0,
-  html5: true,
   preload: true,
 });
 
@@ -226,10 +224,6 @@ export default function App() {
       moktakSound.play();
     } catch (err) {
       console.error("Sound play failed:", err);
-    }
-
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      navigator.vibrate(TAP_VIBRATION_MS);
     }
 
     // Update local state immediately for responsiveness
