@@ -492,7 +492,8 @@ export default function App() {
               <div className="space-y-4 text-sm leading-6">
                 <div className="rounded-2xl bg-[#f2f2f2] p-4">
                   <p className="font-semibold text-[#7E4412]">2026.04.16</p>
-                  <p className="mt-2">하루에 목탁을 칠 수 있는 최대 한도를 설정했어요.</p>
+                  <p className="mt-2">- 하루에 목탁을 칠 수 있는 최대 한도를 설정했어요.</p>
+                  <p>- 드래그로도 목탁을 칠 수 있게 액션을 추가했어요.</p>
                 </div>
               </div>
             </motion.div>
