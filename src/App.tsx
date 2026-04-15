@@ -11,6 +11,10 @@ import moktakSoundFile from '../sound.wav'; // 목탁소리
 const STORAGE_USER_ID_KEY = 'moktak-user-id';
 const DAILY_COUNT_LIMIT = 10000; // 일일 한도 횟수
 const LIMIT_TOAST_COOLDOWN_MS = 2000;
+const DRAG_START_DISTANCE_PX = 22;
+const DRAG_REPEAT_DISTANCE_PX = 30;
+const DRAG_REPEAT_INTERVAL_MS = 90;
+const TAP_VIBRATION_MS = 12;
 
 function getOrCreateUserId() {
   if (typeof window === 'undefined') {
@@ -91,6 +95,14 @@ export default function App() {
   const countRef = useRef(0);
   const toastTimerRef = useRef<number | null>(null);
   const lastLimitToastAtRef = useRef(0);
+  const activePointerIdRef = useRef<number | null>(null);
+  const lastDragHitAtRef = useRef(0);
+  const pointerDownPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const lastDragHitPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const isDragActiveRef = useRef(false);
+  const isSyncingRef = useRef(false);
+  const tapResetTimerRef = useRef<number | null>(null);
+  const tapAnimationFrameRef = useRef<number | null>(null);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -155,10 +167,16 @@ export default function App() {
   }, [fetchTotals, userId]);
 
   const syncWithBackend = useCallback(() => {
+    if (isSyncingRef.current) {
+      return;
+    }
+
     const increment = pendingHits.current;
     if (increment <= 0) {
       return;
     }
+
+    isSyncingRef.current = true;
     pendingHits.current = 0;
 
     fetch(`/api/hits/user?userId=${encodeURIComponent(userId)}&increment=${increment}&ts=${Date.now()}`, {
@@ -178,15 +196,22 @@ export default function App() {
         setCount(nextCount);
         setGlobalTotal(stats.globalTotal);
         setVisitorCount(stats.visitorCount);
-        fetchTotals().catch(err => console.error("Failed to refresh total after sync:", err));
       })
       .catch(err => {
         console.error("Sync failed, restoring pending hits:", err);
         pendingHits.current += increment;
-    });
+      })
+      .finally(() => {
+        isSyncingRef.current = false;
+        if (pendingHits.current > 0) {
+          syncWithBackend();
+          return;
+        }
+        fetchTotals().catch(err => console.error("Failed to refresh total after sync:", err));
+      });
   }, [fetchTotals, userId]);
 
-  const handleTap = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const registerHit = useCallback((clientX: number, clientY: number) => {
     if (countRef.current >= DAILY_COUNT_LIMIT) {
       const now = Date.now();
       if (now - lastLimitToastAtRef.current >= LIMIT_TOAST_COOLDOWN_MS) {
@@ -203,6 +228,10 @@ export default function App() {
       console.error("Sound play failed:", err);
     }
 
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(TAP_VIBRATION_MS);
+    }
+
     // Update local state immediately for responsiveness
     const nextCount = Math.min(DAILY_COUNT_LIMIT, toSafeNumber(countRef.current) + 1);
     const appliedIncrement = nextCount - toSafeNumber(countRef.current);
@@ -217,13 +246,24 @@ export default function App() {
     pendingHits.current += appliedIncrement;
 
     // Visual feedback
-    setIsTapping(true);
-    setTimeout(() => setIsTapping(false), 100);
+    if (tapAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(tapAnimationFrameRef.current);
+    }
+    if (tapResetTimerRef.current !== null) {
+      window.clearTimeout(tapResetTimerRef.current);
+    }
+
+    setIsTapping(false);
+    tapAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      setIsTapping(true);
+      tapAnimationFrameRef.current = null;
+      tapResetTimerRef.current = window.setTimeout(() => {
+        setIsTapping(false);
+        tapResetTimerRef.current = null;
+      }, 100);
+    });
 
     // Add ripple
-    const clientX = e.clientX;
-    const clientY = e.clientY;
-    
     const newRipple = { id: Date.now(), x: clientX, y: clientY };
     setRipples(prev => [...prev, newRipple]);
     setTimeout(() => {
@@ -231,6 +271,68 @@ export default function App() {
     }, 1000);
 
     syncWithBackend();
+  }, [showToast, syncWithBackend]);
+
+  const handleTap = (e: React.PointerEvent<HTMLButtonElement>) => {
+    activePointerIdRef.current = e.pointerId;
+    pointerDownPositionRef.current = { x: e.clientX, y: e.clientY };
+    lastDragHitPositionRef.current = { x: e.clientX, y: e.clientY };
+    isDragActiveRef.current = false;
+    lastDragHitAtRef.current = Date.now();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    registerHit(e.clientX, e.clientY);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (activePointerIdRef.current !== e.pointerId || e.buttons === 0) {
+      return;
+    }
+
+    const pointerDownPosition = pointerDownPositionRef.current;
+    const lastDragHitPosition = lastDragHitPositionRef.current;
+    if (!pointerDownPosition || !lastDragHitPosition) {
+      return;
+    }
+
+    const totalDistance = Math.hypot(
+      e.clientX - pointerDownPosition.x,
+      e.clientY - pointerDownPosition.y,
+    );
+    if (!isDragActiveRef.current) {
+      if (totalDistance < DRAG_START_DISTANCE_PX) {
+        return;
+      }
+      isDragActiveRef.current = true;
+    }
+
+    const now = Date.now();
+    if (now - lastDragHitAtRef.current < DRAG_REPEAT_INTERVAL_MS) {
+      return;
+    }
+
+    const stepDistance = Math.hypot(
+      e.clientX - lastDragHitPosition.x,
+      e.clientY - lastDragHitPosition.y,
+    );
+    if (stepDistance < DRAG_REPEAT_DISTANCE_PX) {
+      return;
+    }
+
+    lastDragHitAtRef.current = now;
+    lastDragHitPositionRef.current = { x: e.clientX, y: e.clientY };
+    registerHit(e.clientX, e.clientY);
+  };
+
+  const handlePointerEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (activePointerIdRef.current !== e.pointerId) {
+      return;
+    }
+
+    activePointerIdRef.current = null;
+    pointerDownPositionRef.current = null;
+    lastDragHitPositionRef.current = null;
+    isDragActiveRef.current = false;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
   };
 
   useEffect(() => {
@@ -238,13 +340,19 @@ export default function App() {
       if (toastTimerRef.current !== null) {
         window.clearTimeout(toastTimerRef.current);
       }
+      if (tapResetTimerRef.current !== null) {
+        window.clearTimeout(tapResetTimerRef.current);
+      }
+      if (tapAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(tapAnimationFrameRef.current);
+      }
     };
   }, []);
 
   return (
     <div 
-      className="h-screen min-h-[100svh] bg-[#fdf6e3] text-[#586e75] font-sans selection:bg-[#eee8d5] overflow-hidden flex flex-col items-center justify-center p-4 relative"
-      style={{ cursor: stickCursor }}
+      className="h-screen min-h-[100svh] bg-[#fdf6e3] text-[#586e75] font-sans selection:bg-[#eee8d5] overflow-hidden flex flex-col items-center justify-center p-4 relative select-none"
+      style={{ cursor: stickCursor, WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
     >
       {/* Background Zen Pattern */}
       <div className="absolute inset-0 opacity-5 pointer-events-none" 
@@ -284,15 +392,19 @@ export default function App() {
         {/* 목탁 */}
         <motion.button
           onPointerDown={handleTap}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          onContextMenu={e => e.preventDefault()}
           animate={{ 
             scale: isTapping ? 0.94 : 1,
             rotate: isTapping ? -3 : 0,
             y: isTapping ? 8 : 0
           }}
           transition={{ type: "spring", stiffness: 600, damping: 12 }}
-          className="relative w-64 h-64 group outline-none z-10 mt-10"
+          className="relative w-64 h-64 group outline-none z-10 mt-10 select-none"
           id="moktak-button"
-          style={{ cursor: 'inherit', touchAction: 'manipulation' }}
+          style={{ cursor: 'inherit', touchAction: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
         >
           {/* 목탁 몸통 */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#a0522d] via-[#8b4513] to-[#4d2608] rounded-full shadow-[0_30px_70px_rgba(0,0,0,0.5),inset_0_4px_15px_rgba(255,255,255,0.2)] border-b-[5px] border-[#2a1506] z-20">
