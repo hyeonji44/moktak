@@ -11,9 +11,9 @@ import moktakSoundFile from '../sound.wav'; // 목탁소리
 const STORAGE_USER_ID_KEY = 'moktak-user-id';
 const DAILY_COUNT_LIMIT = 10000; // 일일 한도 횟수
 const LIMIT_TOAST_COOLDOWN_MS = 2000;
-const DRAG_START_DISTANCE_PX = 22;
-const DRAG_REPEAT_DISTANCE_PX = 30;
-const DRAG_REPEAT_INTERVAL_MS = 90;
+const DRAG_START_DISTANCE_PX = 80;
+const DRAG_REPEAT_DISTANCE_PX = 100;
+const MAX_DRAG_HITS_PER_MOVE = 12;
 
 function getOrCreateUserId() {
   if (typeof window === 'undefined') {
@@ -94,13 +94,14 @@ export default function App() {
   const toastTimerRef = useRef<number | null>(null);
   const lastLimitToastAtRef = useRef(0);
   const activePointerIdRef = useRef<number | null>(null);
-  const lastDragHitAtRef = useRef(0);
   const pointerDownPositionRef = useRef<{ x: number; y: number } | null>(null);
-  const lastDragHitPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const lastPointerPositionRef = useRef<{ x: number; y: number } | null>(null);
   const isDragActiveRef = useRef(false);
+  const dragCarryDistanceRef = useRef(0);
   const isSyncingRef = useRef(false);
   const tapResetTimerRef = useRef<number | null>(null);
   const tapAnimationFrameRef = useRef<number | null>(null);
+  const rippleIdRef = useRef(0);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -258,7 +259,7 @@ export default function App() {
     });
 
     // Add ripple
-    const newRipple = { id: Date.now(), x: clientX, y: clientY };
+    const newRipple = { id: rippleIdRef.current++, x: clientX, y: clientY };
     setRipples(prev => [...prev, newRipple]);
     setTimeout(() => {
       setRipples(prev => prev.filter(r => r.id !== newRipple.id));
@@ -270,9 +271,9 @@ export default function App() {
   const handleTap = (e: React.PointerEvent<HTMLButtonElement>) => {
     activePointerIdRef.current = e.pointerId;
     pointerDownPositionRef.current = { x: e.clientX, y: e.clientY };
-    lastDragHitPositionRef.current = { x: e.clientX, y: e.clientY };
+    lastPointerPositionRef.current = { x: e.clientX, y: e.clientY };
     isDragActiveRef.current = false;
-    lastDragHitAtRef.current = Date.now();
+    dragCarryDistanceRef.current = 0;
     e.currentTarget.setPointerCapture?.(e.pointerId);
     registerHit(e.clientX, e.clientY);
   };
@@ -283,38 +284,49 @@ export default function App() {
     }
 
     const pointerDownPosition = pointerDownPositionRef.current;
-    const lastDragHitPosition = lastDragHitPositionRef.current;
-    if (!pointerDownPosition || !lastDragHitPosition) {
+    let lastPointerPosition = lastPointerPositionRef.current;
+    if (!pointerDownPosition || !lastPointerPosition) {
       return;
     }
 
-    const totalDistance = Math.hypot(
-      e.clientX - pointerDownPosition.x,
-      e.clientY - pointerDownPosition.y,
-    );
-    if (!isDragActiveRef.current) {
-      if (totalDistance < DRAG_START_DISTANCE_PX) {
-        return;
+    const pointerSamples = e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent];
+    let hitsTriggered = 0;
+
+    for (const sample of pointerSamples) {
+      const currentPoint = { x: sample.clientX, y: sample.clientY };
+      const segmentDistance = Math.hypot(
+        currentPoint.x - lastPointerPosition.x,
+        currentPoint.y - lastPointerPosition.y,
+      );
+
+      if (!isDragActiveRef.current) {
+        const totalDistance = Math.hypot(
+          currentPoint.x - pointerDownPosition.x,
+          currentPoint.y - pointerDownPosition.y,
+        );
+
+        if (totalDistance >= DRAG_START_DISTANCE_PX) {
+          isDragActiveRef.current = true;
+          dragCarryDistanceRef.current = Math.max(0, totalDistance - DRAG_START_DISTANCE_PX);
+        }
+      } else {
+        dragCarryDistanceRef.current += segmentDistance;
       }
-      isDragActiveRef.current = true;
+
+      while (
+        isDragActiveRef.current &&
+        dragCarryDistanceRef.current >= DRAG_REPEAT_DISTANCE_PX &&
+        hitsTriggered < MAX_DRAG_HITS_PER_MOVE
+      ) {
+        dragCarryDistanceRef.current -= DRAG_REPEAT_DISTANCE_PX;
+        hitsTriggered += 1;
+        registerHit(currentPoint.x, currentPoint.y);
+      }
+
+      lastPointerPosition = currentPoint;
     }
 
-    const now = Date.now();
-    if (now - lastDragHitAtRef.current < DRAG_REPEAT_INTERVAL_MS) {
-      return;
-    }
-
-    const stepDistance = Math.hypot(
-      e.clientX - lastDragHitPosition.x,
-      e.clientY - lastDragHitPosition.y,
-    );
-    if (stepDistance < DRAG_REPEAT_DISTANCE_PX) {
-      return;
-    }
-
-    lastDragHitAtRef.current = now;
-    lastDragHitPositionRef.current = { x: e.clientX, y: e.clientY };
-    registerHit(e.clientX, e.clientY);
+    lastPointerPositionRef.current = lastPointerPosition;
   };
 
   const handlePointerEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -324,8 +336,9 @@ export default function App() {
 
     activePointerIdRef.current = null;
     pointerDownPositionRef.current = null;
-    lastDragHitPositionRef.current = null;
+    lastPointerPositionRef.current = null;
     isDragActiveRef.current = false;
+    dragCarryDistanceRef.current = 0;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
   };
 
